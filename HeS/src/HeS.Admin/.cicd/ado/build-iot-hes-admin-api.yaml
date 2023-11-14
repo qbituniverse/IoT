@@ -26,7 +26,7 @@ stages:
     - agent.name -equals ado-agent-amd64
   variables:
     imageDockerfile: HeS/src/HeS.Admin/.cicd/docker/Dockerfile-iot-hes-admin-api
-    imageRepository: qbituniverse/iot/hes-admin-api
+    imageRepository: qbituniverse/iot-hes-admin-api
     imageTag: $(imageVersion).$(Build.BuildId)
     imageVersion: 'N/A'
     imageArchitecture: linux/arm64
