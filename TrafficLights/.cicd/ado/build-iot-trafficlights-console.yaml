@@ -26,7 +26,7 @@ stages:
     - agent.name -equals ado-agent-amd64
   variables:
     imageDockerfile: TrafficLights/.cicd/docker/Dockerfile-iot-trafficlights-console
-    imageRepository: qbituniverse/iot/trafficlights-console
+    imageRepository: qbituniverse/iot-trafficlights-console
     imageTag: $(imageVersion).$(Build.BuildId)
     imageVersion: 'N/A'
     imageArchitecture: linux/arm64
