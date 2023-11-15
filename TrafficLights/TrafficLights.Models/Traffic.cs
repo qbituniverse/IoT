@@ -41,11 +41,13 @@ namespace TrafficLights.Models
 
         public void Stanby()
         {
+            Thread.Sleep(500);
             _gpio.OpenPin(Amber, PinMode.Output);
             _gpio.Write(Amber, PinValue.High);
             Thread.Sleep(1000);
             _gpio.Write(Amber, PinValue.Low);
             _gpio.ClosePin(Amber);
+            Thread.Sleep(500);
         }
 
         public void Shut()

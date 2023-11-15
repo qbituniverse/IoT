@@ -46,6 +46,7 @@ public class TrafficController : ControllerBase
     public void PostTrafficStandby()
     {
         _logger.LogInformation("Traffic Standby");
+        _traffic.Shut();
         _traffic.Stanby();
         _logger.LogInformation("Done: Traffic Standby");
     }
@@ -64,6 +65,7 @@ public class TrafficController : ControllerBase
     public void PostTrafficTest(int blinkTime, int pinNumber)
     {
         _logger.LogInformation("Traffic Test");
+        _traffic.Shut();
         _traffic.Test(blinkTime, pinNumber);
         _logger.LogInformation("Done: Traffic Test");
     }

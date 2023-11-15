@@ -21,10 +21,10 @@ sudo rm -rf /home/hes/code/TrafficLights/TrafficLights.Api
 ### Build Docker ###
 # build
 docker buildx create --use --bootstrap --name iot-trafficlights-buildx
-docker buildx build --push --platform linux/arm64 -t qbituniverse/iot/trafficlights-api:latest -f TrafficLights/.cicd/docker/Dockerfile-iot-trafficlights-api .
+docker buildx build --push --platform linux/arm64 -t qbituniverse/iot-trafficlights-api:latest -f TrafficLights/.cicd/docker/Dockerfile-iot-trafficlights-api .
 docker buildx rm -f iot-trafficlights-buildx
 
 # run
-sudo docker run --privileged --name iot-trafficlights-api -p 8010:80 qbituniverse/iot/trafficlights-api:latest
+sudo docker run --privileged -it --rm --name iot-trafficlights-api -p 8010:80 qbituniverse/iot-trafficlights-api:latest
 sudo docker rm -fv iot-trafficlights-api
-sudo docker rmi -f qbituniverse/iot/trafficlights-api:latest
+sudo docker rmi -f qbituniverse/iot-trafficlights-api:latest
