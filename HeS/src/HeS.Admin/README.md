@@ -1,2 +1,0 @@
-# HeS Admin API
-TBC

@@ -1,75 +1,91 @@
-﻿using TrafficLights.Console;
-using TrafficLights.Models;
+﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
+using TrafficLights.Console.Models;
+using Serilog;
+using TrafficLights.Console;
+using TrafficLights.Console.Runs;
+using Serilog.Events;
+using Serilog.Sinks.SystemConsole.Themes;
+using RollingInterval = Serilog.Sinks.MongoDB.RollingInterval;
 
-var traffic = new Traffic();
-var trafficType = Helper.TrafficType.Start;
-var trafficChange = false;
+var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
-while (true)
+var configBuilder = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile($"appsettings{(string.IsNullOrEmpty(environment) ? "" : "." + environment)}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+IConfiguration configuration = configBuilder.Build();
+
+var consoleConfiguration = configuration.GetSection(nameof(ConsoleConfiguration)).Get<ConsoleConfiguration>()!;
+
+var loggerConfiguration = new LoggerConfiguration()
+    .ReadFrom.Configuration(configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithThreadId()
+    .Enrich.WithProcessId()
+    .Enrich.WithProcessName()
+    .Enrich.WithEnvironmentName()
+    .Enrich.WithEnvironmentUserName()
+    .WriteTo.Console(
+        restrictedToMinimumLevel: LogEventLevel.Information,
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} <s:{SourceContext}>{NewLine}{Exception}",
+        theme: AnsiConsoleTheme.Code);
+
+switch (consoleConfiguration.Repository!.Type)
 {
-    if (trafficChange)
+    case "MySql":
+        loggerConfiguration.WriteTo.MySQL(
+            connectionString: consoleConfiguration.Repository.MySql!.Url,
+            tableName: "ConsoleLogs",
+            restrictedToMinimumLevel: LogEventLevel.Warning);
+        break;
+
+    case "MongoDb":
+        loggerConfiguration.WriteTo.MongoDBBson(
+            restrictedToMinimumLevel: LogEventLevel.Warning,
+            databaseUrl: $"{consoleConfiguration.Repository.MongoDb!.Url}/TrafficLights",
+            collectionName: "ConsoleLogs",
+            rollingInterval: RollingInterval.Day,
+            cappedMaxSizeMb: 1024,
+            cappedMaxDocuments: 50000);
+        break;
+}
+
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices(services =>
     {
-        switch (trafficType)
-        {
-            case Helper.TrafficType.Start:
-                trafficChange = false;
-                traffic.Start();
-                Console.WriteLine($"Traffic Start: {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
-                break;
-            case Helper.TrafficType.Stop:
-                trafficChange = false;
-                traffic.Stop();
-                Console.WriteLine($"Traffic Stop: {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
-                break;
-            case Helper.TrafficType.Standby:
-                trafficChange = false;
-                traffic.Shut();
-                traffic.Stanby();
-                Console.WriteLine($"Traffic Standby: {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
-                break;
-        }
-    }
-    else
+        Register.Services(consoleConfiguration, services);
+    })
+    .ConfigureLogging(cfg =>
     {
-        // run Standby during even minutes
-        if (DateTime.Now.Minute % 2 == 0)
-        {
-            if (trafficType == Helper.TrafficType.Standby)
-            {
-                trafficChange = true;
-                continue;
-            }
+        cfg.ClearProviders();
+        cfg.AddSerilog(loggerConfiguration.CreateLogger());
+    })
+    .Build();
 
-            trafficChange = true;
-            trafficType = Helper.TrafficType.Standby;
-            Console.WriteLine($"Traffic Change to Standby: {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
-            continue;
-        }
+var logger = host.Services.GetRequiredService<ILogger<Program>>();
 
-        // run for switch over from Standby to Stop
-        if (trafficType == Helper.TrafficType.Standby)
-        {
-            trafficChange = true;
-            trafficType = Helper.TrafficType.Stop;
-            Console.WriteLine($"Traffic Change to Stop: {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
-            continue;
-        }
+AppDomain.CurrentDomain.UnhandledException += Error;
 
-        // run Start-Stop during uneven minutes, toggle every 10 seconds
-        if (DateTime.Now.Second % 10 == 0)
-        {
-            trafficChange = true;
-            switch (trafficType)
-            {
-                case Helper.TrafficType.Start:
-                    trafficType = Helper.TrafficType.Stop;
-                    Console.WriteLine($"Traffic Change to Stop: {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
-                    break;
-                case Helper.TrafficType.Stop:
-                    trafficType = Helper.TrafficType.Start;
-                    Console.WriteLine($"Traffic Change to Start: {DateTime.Now:dd-MM-yyyy HH:mm:ss}");
-                    break;
-            }
-        }
-    }
+logger.LogInformation(@"TrafficLights.Console Configuration {Config}", consoleConfiguration.ToJson());
+
+await Task.Run(host.Services.GetService<IRun>()!.Run);
+
+void Error(object sender, UnhandledExceptionEventArgs e)
+{
+    var exception = e.ExceptionObject as Exception;
+
+    Console.WriteLine(
+        $"Error: Message {exception!.Message} Source {exception.Source} StackTrace {exception.StackTrace}");
+
+    Thread.Sleep(15000);
+
+    logger.LogError(@"Error: Message {Message} Source {Source} StackTrace {StackTrace}",
+        exception.Message, exception.Source, exception.StackTrace);
+    Thread.Sleep(15000);
+
+    Environment.Exit(-1);
 }

@@ -29,7 +29,7 @@ stages:
     imageRepository: qbituniverse/iot-trafficlights-api
     imageTag: $(imageVersion).$(Build.BuildId)
     imageVersion: 'N/A'
-    imageArchitecture: linux/arm64
+    imageArchitecture: linux/amd64,linux/arm64
   jobs:
   - job: DockerBuild
     displayName: 'Build Multi-Arch Docker Images for TrafficLights Api'

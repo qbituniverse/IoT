@@ -1,0 +1,18 @@
+services:
+  admin-api:
+    image: qbituniverse/iot-hes-admin-api:latest
+    restart: always
+    container_name: iot-hes-admin-api
+    environment:
+      - TZ=Europe/Warsaw
+      - ApiConfiguration__Environment=Test
+    ports:
+      - 8000:80
+    tty: true
+    privileged: true
+    networks:
+      - iot-hes
+
+networks:
+  iot-hes:
+    driver: bridge
