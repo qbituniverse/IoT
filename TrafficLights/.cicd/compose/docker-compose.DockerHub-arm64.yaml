@@ -1,0 +1,77 @@
+services:
+  mysql:
+    image: mysql:latest
+    restart: on-failure
+    container_name: iot-trafficlights-mysql
+    environment:
+      - TZ=Europe/Warsaw
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PWD}
+      - MYSQL_DATABASE=TrafficLights
+    volumes:
+      - ${MYSQL_DIR}:/var/lib/mysql
+    ports:
+      - 3306:3306
+    tty: true
+    networks:
+      - iot-trafficlights
+
+  api:
+    image: qbituniverse/iot-trafficlights-api:latest
+    depends_on:
+      - mysql
+    restart: on-failure
+    container_name: iot-trafficlights-api
+    environment:
+      - TZ=Europe/Warsaw
+      - ApiConfiguration__Environment=Test
+      - ApiConfiguration__Repository__Type=MySql
+      - ApiConfiguration__Repository__MySql__Url=Server=iot-trafficlights-mysql;User ID=root;Password=${MYSQL_PWD};Database=TrafficLights
+      - ApiConfiguration__TrafficControl__Type=Pi
+    ports:
+      - 8010:80
+    tty: true
+    privileged: true
+    networks:
+      - iot-trafficlights
+
+  web:
+    image: qbituniverse/iot-trafficlights-web:latest
+    depends_on:
+      - mysql
+    restart: on-failure
+    container_name: iot-trafficlights-web
+    environment:
+      - TZ=Europe/Warsaw
+      - WebConfiguration__Environment=Test
+      - WebConfiguration__Repository__Type=MySql
+      - WebConfiguration__Repository__MySql__Url=Server=iot-trafficlights-mysql;User ID=root;Password=${MYSQL_PWD};Database=TrafficLights
+      - WebConfiguration__Api=http://iot-trafficlights-api
+    ports:
+      - 8020:80
+    tty: true
+    networks:
+      - iot-trafficlights
+
+  console:
+    image: qbituniverse/iot-trafficlights-console:latest
+    depends_on:
+      - mysql
+    restart: on-failure
+    container_name: iot-trafficlights-console
+    environment:
+      - TZ=Europe/Warsaw
+      - ConsoleConfiguration__Environment=Test
+      - ConsoleConfiguration__Repository__Type=MySql
+      - ConsoleConfiguration__Repository__MySql__Url=Server=iot-trafficlights-mysql;User ID=root;Password=${MYSQL_PWD};Database=TrafficLights
+      - ConsoleConfiguration__TrafficControl__Type=Api
+      - ConsoleConfiguration__TrafficControl__Api__Url=http://iot-trafficlights-api
+      - ConsoleConfiguration__TrafficSensor__Type=Default
+      - ConsoleConfiguration__Run=RunTrafficTimer
+    tty: true
+    privileged: true
+    networks:
+      - iot-trafficlights
+
+networks:
+  iot-trafficlights:
+    driver: bridge
